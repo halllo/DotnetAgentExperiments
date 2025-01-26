@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ms.ext.ai", "ms.ext.ai\ms.ext.ai.csproj", "{A3343B14-1FE2-4FD9-A9CE-882A96347B28}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sem.ker", "sem.ker\sem.ker.csproj", "{1935700F-7574-4D18-B0AF-B5A0871CDDFB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A3343B14-1FE2-4FD9-A9CE-882A96347B28}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3343B14-1FE2-4FD9-A9CE-882A96347B28}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3343B14-1FE2-4FD9-A9CE-882A96347B28}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3343B14-1FE2-4FD9-A9CE-882A96347B28}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1935700F-7574-4D18-B0AF-B5A0871CDDFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1935700F-7574-4D18-B0AF-B5A0871CDDFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1935700F-7574-4D18-B0AF-B5A0871CDDFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1935700F-7574-4D18-B0AF-B5A0871CDDFB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {105FE9A3-9E8E-4F2C-B48D-8B49A9911BF8}
+	EndGlobalSection
+EndGlobal
