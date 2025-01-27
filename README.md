@@ -54,3 +54,4 @@ Microsoft.SemanticKernel.Connectors.Amazon.Core.BedrockChatCompletionClient[0]
          at Microsoft.SemanticKernel.Connectors.Amazon.Core.BedrockChatCompletionClient.GenerateChatMessageAsync(ChatHistory chatHistory, PromptExecutionSettings executionSettings, Kernel kernel, CancellationToken cancellationToken)
 ```
 
+There seems to be an open issue regarding [#9750 .Net Function Calling with Bedrock Claude](https://github.com/microsoft/semantic-kernel/issues/9750).
