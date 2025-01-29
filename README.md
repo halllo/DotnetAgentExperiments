@@ -87,3 +87,4 @@ Amazon.BedrockRuntime.Model.ValidationException
    at Program.<<Main>$>d__0.MoveNext() in D:\DotnetAgentExperiments\aws.bed\Program.cs:line 22
 ```
 
+I asked about [Function calling with Claude on Amazon Bedrock in dotnet](https://stackoverflow.com/questions/79397902/function-calling-with-claude-on-amazon-bedrock-in-dotnet) at stackoverflow.
