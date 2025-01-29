@@ -30,8 +30,8 @@ using (var serviceScope = host.Services.CreateScope())
 				{
 					ToolSpec = new ToolSpecification
 					{
-						Name = "GetWeather",
-						Description = "Gets the weather",
+						Name = "GetSong",
+						Description = "Gets the current song on the radio",
 						InputSchema = new ToolInputSchema
 						{
 							Json = Amazon.Runtime.Documents.Document.FromObject(new
