@@ -6,6 +6,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ms.ext.ai", "ms.ext.ai\ms.e
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sem.ker", "sem.ker\sem.ker.csproj", "{1935700F-7574-4D18-B0AF-B5A0871CDDFB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connectors.Amazon", "..\semantic-kernel\dotnet\src\Connectors\Connectors.Amazon\Connectors.Amazon.csproj", "{09AD0715-1CBA-4EC2-B436-71DE560138B0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "aws.bed", "aws.bed\aws.bed.csproj", "{1E293F5F-BD88-47BE-892A-A31F1DD5D217}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{43661067-C41C-4AE3-B328-2E55807E56E7}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +29,14 @@ Global
 		{1935700F-7574-4D18-B0AF-B5A0871CDDFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1935700F-7574-4D18-B0AF-B5A0871CDDFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1935700F-7574-4D18-B0AF-B5A0871CDDFB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{09AD0715-1CBA-4EC2-B436-71DE560138B0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{09AD0715-1CBA-4EC2-B436-71DE560138B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{09AD0715-1CBA-4EC2-B436-71DE560138B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{09AD0715-1CBA-4EC2-B436-71DE560138B0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1E293F5F-BD88-47BE-892A-A31F1DD5D217}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E293F5F-BD88-47BE-892A-A31F1DD5D217}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E293F5F-BD88-47BE-892A-A31F1DD5D217}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E293F5F-BD88-47BE-892A-A31F1DD5D217}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

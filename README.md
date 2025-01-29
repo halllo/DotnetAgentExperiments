@@ -6,7 +6,7 @@ We are experimenting with differnt agent patterns.
 
 The package is still in preview. There is no official AWS Bedrock implementation. Works fine with OpenAI.
 
-## SemanticKernel
+## Microsoft.SemanticKernel
 
 The package seems quite mature.
 
@@ -18,7 +18,7 @@ Works great. Also with function calling.
 
 Works great, Also with function calling.
 
-### AWS Bedrock
+### Connectors.Amazon
 
 The connector package is still in alpha. It supports `chatClient.GetChatMessageContentsAsync()` without function calling.
 
@@ -55,3 +55,35 @@ Microsoft.SemanticKernel.Connectors.Amazon.Core.BedrockChatCompletionClient[0]
 ```
 
 There seems to be an open issue regarding [#9750 .Net Function Calling with Bedrock Claude](https://github.com/microsoft/semantic-kernel/issues/9750).
+
+## AWSSDK.BedrockRuntime
+
+I was unable to find a dotnet example, that uses function calling. I only found this python example: <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use-examples.html>
+
+I tried to convert it to dotnet, but it throws this exception at runtime:
+
+```
+Amazon.BedrockRuntime.Model.ValidationException
+  HResult=0x80131500
+  Message=The value at toolConfig.tools.0.toolSpec.inputSchema.json.type must be one of the following: object.
+  Source=AWSSDK.Core
+  StackTrace:
+   at Amazon.Runtime.Internal.HttpErrorResponseExceptionHandler.HandleExceptionStream(IRequestContext requestContext, IWebResponseData httpErrorResponse, HttpErrorResponseException exception, Stream responseStream)
+   at Amazon.Runtime.Internal.HttpErrorResponseExceptionHandler.<HandleExceptionAsync>d__2.MoveNext()
+   at Amazon.Runtime.Internal.ExceptionHandler`1.<HandleAsync>d__6.MoveNext()
+   at Amazon.Runtime.Internal.ErrorHandler.<ProcessExceptionAsync>d__8.MoveNext()
+   at Amazon.Runtime.Internal.ErrorHandler.<InvokeAsync>d__5`1.MoveNext()
+   at Amazon.Runtime.Internal.CallbackHandler.<InvokeAsync>d__9`1.MoveNext()
+   at Amazon.Runtime.Internal.Signer.<InvokeAsync>d__1`1.MoveNext()
+   at Amazon.Runtime.Internal.EndpointDiscoveryHandler.<InvokeAsync>d__2`1.MoveNext()
+   at Amazon.Runtime.Internal.EndpointDiscoveryHandler.<InvokeAsync>d__2`1.MoveNext()
+   at Amazon.Runtime.Internal.CredentialsRetriever.<InvokeAsync>d__7`1.MoveNext()
+   at Amazon.Runtime.Internal.RetryHandler.<InvokeAsync>d__10`1.MoveNext()
+   at Amazon.Runtime.Internal.RetryHandler.<InvokeAsync>d__10`1.MoveNext()
+   at Amazon.Runtime.Internal.CallbackHandler.<InvokeAsync>d__9`1.MoveNext()
+   at Amazon.Runtime.Internal.CallbackHandler.<InvokeAsync>d__9`1.MoveNext()
+   at Amazon.Runtime.Internal.ErrorCallbackHandler.<InvokeAsync>d__5`1.MoveNext()
+   at Amazon.Runtime.Internal.MetricsHandler.<InvokeAsync>d__1`1.MoveNext()
+   at Program.<<Main>$>d__0.MoveNext() in D:\DotnetAgentExperiments\aws.bed\Program.cs:line 22
+```
+
