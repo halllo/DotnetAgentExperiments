@@ -36,15 +36,15 @@ using (var serviceScope = host.Services.CreateScope())
 						{
 							Json = Amazon.Runtime.Documents.Document.FromObject(new
 							{
-								Type = "object",
-								Properties = new Dictionary<string, object>
+								type = "object",
+								properties = new Dictionary<string, object>
 								{
 									{ "sign", new {
-										Type = "string",
-										Description = "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKRP."
+										type = "string",
+										description = "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKRP."
 									} }
 								},
-								Required = new string[]
+								required = new string[]
 								{
 									 "sign"
 								},

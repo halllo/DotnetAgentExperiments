@@ -98,3 +98,23 @@ Amazon.BedrockRuntime.Model.ValidationException
 ```
 
 I asked about [Function calling with Claude on Amazon Bedrock in dotnet](https://stackoverflow.com/questions/79397902/function-calling-with-claude-on-amazon-bedrock-in-dotnet) at stackoverflow.
+
+After I changed the properties of my anonymous object to lowercase, it worked.
+
+```csharp
+Json = Amazon.Runtime.Documents.Document.FromObject(new
+{
+	type = "object",
+	properties = new Dictionary<string, object>
+	{
+		{ "sign", new {
+			type = "string",
+			description = "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKRP."
+		} }
+	},
+	required = new string[]
+	{
+			"sign"
+	},
+}),
+```
