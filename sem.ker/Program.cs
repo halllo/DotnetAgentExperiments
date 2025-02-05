@@ -5,7 +5,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.Amazon;
 using System.ComponentModel;
 using System.Text.Json;
 
@@ -20,12 +19,14 @@ using (var serviceScope = host.Services.CreateScope())
 	chatHistory.AddMessage(AuthorRole.User, "Do I need an umbrella?");
 
 	{
-#pragma warning disable SKEXP0070 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 		var invocation = await chatClient.GetChatMessageContentsAsync(
 			chatHistory: chatHistory,
-			executionSettings: new AmazonClaudeExecutionSettings() { MaxTokensToSample = 2048, FunctionChoiceBehavior = FunctionChoiceBehavior.Auto() },
+			executionSettings: new PromptExecutionSettings()
+			{
+				FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+				ExtensionData = new Dictionary<string, object>() { { "max_tokens_to_sample", 4096 } },
+			},
 			kernel: kernel);
-#pragma warning restore SKEXP0070 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
 		await ShowResponse(invocation, chatHistory);
 	}
@@ -35,7 +36,11 @@ using (var serviceScope = host.Services.CreateScope())
 	{
 		var invocation = await chatClient.GetChatMessageContentsAsync(
 			chatHistory: chatHistory,
-			executionSettings: new() { FunctionChoiceBehavior = FunctionChoiceBehavior.Auto() },
+			executionSettings: new()
+			{
+				FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+				ExtensionData = new Dictionary<string, object>() { { "max_tokens_to_sample", 4096 } },
+			},
 			kernel: kernel);
 
 		await ShowResponse(invocation, chatHistory);

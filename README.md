@@ -54,6 +54,16 @@ Microsoft.SemanticKernel.Connectors.Amazon.Core.BedrockChatCompletionClient[0]
          at Microsoft.SemanticKernel.Connectors.Amazon.Core.BedrockChatCompletionClient.GenerateChatMessageAsync(ChatHistory chatHistory, PromptExecutionSettings executionSettings, Kernel kernel, CancellationToken cancellationToken)
 ```
 
+The exception does not occur anymore, when I include the max tokens in the `ExtensionData` of the `PromptExecutionSettings`.
+
+```csharp
+ExtensionData = new Dictionary<string, object>() {
+    { "max_tokens_to_sample", 4096 }
+},
+```
+
+Now it generates a response. But it does not invoke the `GetWeather()` function.
+
 There seems to be an open issue regarding [#9750 .Net Function Calling with Bedrock Claude](https://github.com/microsoft/semantic-kernel/issues/9750).
 
 ## AWSSDK.BedrockRuntime
