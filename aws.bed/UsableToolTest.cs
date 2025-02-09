@@ -6,7 +6,7 @@ using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 namespace Tests
 {
 	[TestClass]
-	public sealed class SimpleToolReflectionTest
+	public sealed class UsableToolTest
 	{
 		[TestMethod]
 		public void StringToString()
