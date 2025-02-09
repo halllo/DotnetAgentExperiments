@@ -1,8 +1,11 @@
 ﻿using Amazon.BedrockRuntime;
 using Amazon.BedrockRuntime.Model;
+using aws.bed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.ComponentModel.DataAnnotations;
+using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 
 var host = CreateHostBuilder().Build();
 using (var serviceScope = host.Services.CreateScope())
@@ -16,6 +19,11 @@ using (var serviceScope = host.Services.CreateScope())
 		}
 	};
 
+	var getSongTool = [Description("Gets the current song on the radio")]
+	(
+		[Description("The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKRP."), Required] string sign
+	) => "Random Song 1";
+
 	var bedrock = serviceScope.ServiceProvider.GetRequiredService<IAmazonBedrockRuntime>();
 	var response = await bedrock.ConverseAsync(new ConverseRequest
 	{
@@ -23,42 +31,23 @@ using (var serviceScope = host.Services.CreateScope())
 		Messages = messages,
 		ToolConfig = new ToolConfiguration
 		{
-			//taken from https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use-inference-call.html
 			Tools = new List<Tool>
 			{
-				new Tool
-				{
-					ToolSpec = new ToolSpecification
-					{
-						Name = "GetSong",
-						Description = "Gets the current song on the radio",
-						InputSchema = new ToolInputSchema
-						{
-							Json = Amazon.Runtime.Documents.Document.FromObject(new
-							{
-								type = "object",
-								properties = new Dictionary<string, object>
-								{
-									{ "sign", new {
-										type = "string",
-										description = "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKRP."
-									} }
-								},
-								required = new string[]
-								{
-									 "sign"
-								},
-							}),
-						},
-					}
-				}
+				UsableTool.From(getSongTool),
 			}
 		}
 	});
 
 	Console.WriteLine(response.StopReason);
-	var responseText = string.Concat(response.Output.Message.Content.Select(c => c.Text));
-	Console.WriteLine(responseText);
+
+	var texts = response.Output.Message.Content.Select(c => c.Text);
+	Console.WriteLine(string.Concat(texts));
+
+	var toolUses = response.Output.Message.Content.Select(c => c.ToolUse).Where(t => t != null);
+	var toolUse = toolUses.Single();
+	var inputs = toolUse.Input.AsDictionary();
+	Console.WriteLine($"{toolUse.ToolUseId}: {toolUse.Name}: {string.Join(",", inputs.Select(kvp => $"{kvp.Key}:{kvp.Value}"))}");
+
 }
 
 
