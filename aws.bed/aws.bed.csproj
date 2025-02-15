@@ -8,11 +8,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AWSSDK.BedrockRuntime" Version="3.7.412.3" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.1" />
-		<PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.1" />
-		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
-		<PackageReference Include="MSTest" Version="3.6.4" />
+		<PackageReference Include="AgentDo" Version="1.0.1" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.2" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -1,5 +1,5 @@
-﻿using Amazon.BedrockRuntime;
-using aws.bed;
+﻿using AgentDo;
+using Amazon.BedrockRuntime;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -9,16 +9,16 @@ using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 var host = CreateHostBuilder().Build();
 using (var serviceScope = host.Services.CreateScope())
 {
-	var agent = serviceScope.ServiceProvider.GetRequiredService<Agent>();
+	var agent = serviceScope.ServiceProvider.GetRequiredService<IAgent>();
 
 	await agent.Do(
 		task: "Get the most popular song played on a radio station RGBG and rate it as bad.",
 		tools:
 		[
-			Agent.Tool.From([Description("Get radio song")]([Description("The call sign for the radio station for which you want the most popular song."), Required] string sign)
+			Tool.From([Description("Get radio song")]([Description("The call sign for the radio station for which you want the most popular song."), Required] string sign)
 			=> new { songName = "Random Song 1" }),
 
-			Agent.Tool.From([Description("Rate a song")](string song, string rating)
+			Tool.From([Description("Rate a song")](string song, string rating)
 			=> "Rated!"),
 		]);
 }
@@ -40,5 +40,5 @@ static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
 				region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
 		});
 
-		services.AddTransient<Agent>();
+		services.AddTransient<IAgent, BedrockAgent>();
 	});
