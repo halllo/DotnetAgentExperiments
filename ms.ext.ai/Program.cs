@@ -16,8 +16,8 @@ using (var serviceScope = host.Services.CreateScope())
         new(ChatRole.User, "Do I need an umbrella?"),
     };
 
-    var invocation = chatClient.CompleteStreamingAsync(
-        chatMessages: chatMessages,
+    var invocation = chatClient.GetStreamingResponseAsync(
+        messages: chatMessages,
         options: new()
         {
             Tools = [AIFunctionFactory.Create(GetWeather)]
@@ -40,7 +40,7 @@ static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
 
         services.AddSingleton(sp =>
         {
-            var openAiClient = new OpenAIClient(config["OPENAI_API_KEY"]).AsChatClient("gpt-4o-mini");
+            var openAiClient = new OpenAIClient(config["OPENAI_API_KEY"]).GetChatClient("gpt-4o-mini").AsIChatClient();
             var client = new ChatClientBuilder(openAiClient)
                 .UseFunctionInvocation()
                 .Build();

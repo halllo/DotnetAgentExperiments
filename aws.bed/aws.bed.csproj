@@ -8,8 +8,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AgentDo" Version="1.0.1" />
-		<PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.2" />
+		<PackageReference Include="AgentDo" Version="1.0.26" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
+		<PackageReference Include="Spectre.Console" Version="0.50.0" />
 	</ItemGroup>
 
 	<ItemGroup>
