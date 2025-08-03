@@ -2,13 +2,118 @@
 
 We are experimenting with differnt agent patterns.
 
+## AWSSDK.BedrockRuntime
+
+Lets use the native AWSSDK first.
+
+I was unable to find a dotnet example, that uses function calling. I only found this python example: <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use-examples.html>
+
+I tried to convert it to dotnet, but it throws this exception at runtime:
+
+```
+Amazon.BedrockRuntime.Model.ValidationException
+  HResult=0x80131500
+  Message=The value at toolConfig.tools.0.toolSpec.inputSchema.json.type must be one of the following: object.
+  Source=AWSSDK.Core
+  StackTrace:
+   at Amazon.Runtime.Internal.HttpErrorResponseExceptionHandler.HandleExceptionStream(IRequestContext requestContext, IWebResponseData httpErrorResponse, HttpErrorResponseException exception, Stream responseStream)
+   at Amazon.Runtime.Internal.HttpErrorResponseExceptionHandler.<HandleExceptionAsync>d__2.MoveNext()
+   at Amazon.Runtime.Internal.ExceptionHandler`1.<HandleAsync>d__6.MoveNext()
+   at Amazon.Runtime.Internal.ErrorHandler.<ProcessExceptionAsync>d__8.MoveNext()
+   at Amazon.Runtime.Internal.ErrorHandler.<InvokeAsync>d__5`1.MoveNext()
+   at Amazon.Runtime.Internal.CallbackHandler.<InvokeAsync>d__9`1.MoveNext()
+   at Amazon.Runtime.Internal.Signer.<InvokeAsync>d__1`1.MoveNext()
+   at Amazon.Runtime.Internal.EndpointDiscoveryHandler.<InvokeAsync>d__2`1.MoveNext()
+   at Amazon.Runtime.Internal.EndpointDiscoveryHandler.<InvokeAsync>d__2`1.MoveNext()
+   at Amazon.Runtime.Internal.CredentialsRetriever.<InvokeAsync>d__7`1.MoveNext()
+   at Amazon.Runtime.Internal.RetryHandler.<InvokeAsync>d__10`1.MoveNext()
+   at Amazon.Runtime.Internal.RetryHandler.<InvokeAsync>d__10`1.MoveNext()
+   at Amazon.Runtime.Internal.CallbackHandler.<InvokeAsync>d__9`1.MoveNext()
+   at Amazon.Runtime.Internal.CallbackHandler.<InvokeAsync>d__9`1.MoveNext()
+   at Amazon.Runtime.Internal.ErrorCallbackHandler.<InvokeAsync>d__5`1.MoveNext()
+   at Amazon.Runtime.Internal.MetricsHandler.<InvokeAsync>d__1`1.MoveNext()
+   at Program.<<Main>$>d__0.MoveNext() in D:\DotnetAgentExperiments\aws.bed\Program.cs:line 22
+```
+
+I asked about [Function calling with Claude on Amazon Bedrock in dotnet](https://stackoverflow.com/questions/79397902/function-calling-with-claude-on-amazon-bedrock-in-dotnet) at stackoverflow.
+
+After I changed the properties of my anonymous object to lowercase, it worked.
+
+```csharp
+Json = Amazon.Runtime.Documents.Document.FromObject(new
+{
+  type = "object",
+  properties = new Dictionary<string, object>
+  {
+    { "sign", new {
+      type = "string",
+      description = "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKRP."
+    } }
+  },
+  required = new string[]
+  {
+      "sign"
+  },
+}),
+```
+
+I wrapped this into my own function calling abstraction [AgentDo](https://github.com/halllo/AgentDo).
+
 ## Microsoft.Extensions.AI
 
-The package is still in preview. There is no official AWS Bedrock implementation. Works fine with OpenAI.
+This seems to be the current best practice in dotnet.
+
+Works fine with OpenAI (`Microsoft.Extensions.AI.OpenAI`).
+
+There is also an official AWS Bedrock implementation (`AWSSDK.Extensions.Bedrock.MEAI`). However it does not seem to support tool use or function calling. The `IChatClient` I defined like this...
+
+```csharp
+services.AddKeyedSingleton<IChatClient>("awsbedrock", (sp, key) =>
+{
+    var runtime = new AmazonBedrockRuntimeClient(
+        awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
+        awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
+        region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
+
+    var client = runtime
+        .AsIChatClient("anthropic.claude-3-5-sonnet-20240620-v1:0")
+        .AsBuilder()
+        .UseFunctionInvocation()
+        .Build();
+
+    return client;
+});
+```
+
+..., does not call its tools when I use it like this:
+
+```csharp
+var chatClient = serviceScope.ServiceProvider.GetRequiredKeyedService<IChatClient>("awsbedrock");
+
+var chatMessages = new List<ChatMessage>
+{
+    new(ChatRole.System, "You are a helpful AI assistant"),
+    new(ChatRole.User, "Do I need an umbrella?"),
+};
+
+var invocation = chatClient.GetStreamingResponseAsync(
+    messages: chatMessages,
+    options: new()
+    {
+        Tools = [AIFunctionFactory.Create(GetWeather)]
+    });
+
+await foreach (var update in invocation)
+{
+    Console.Write(update);
+}
+```
+
+I didn't find example code with function calling. Only basic completion, like <https://github.com/TheCodeTraveler/Bedrock-MEAI-Sample/tree/main/src>.
 
 ## Microsoft.SemanticKernel
 
-The package seems quite mature.
+The package seems both mature and legacy at the same time.
 
 ### OpenAI
 
@@ -64,57 +169,40 @@ ExtensionData = new Dictionary<string, object>() {
 
 Now it generates a response. But it does not invoke the `GetWeather()` function.
 
-There seems to be an open issue regarding [#9750 .Net Function Calling with Bedrock Claude](https://github.com/microsoft/semantic-kernel/issues/9750).
+There seems to be an issue regarding [#9750 .Net Function Calling with Bedrock Claude](https://github.com/microsoft/semantic-kernel/issues/9750). That issue is now closed, but I still dont get function calling working.
 
-## AWSSDK.BedrockRuntime
-
-I was unable to find a dotnet example, that uses function calling. I only found this python example: <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use-examples.html>
-
-I tried to convert it to dotnet, but it throws this exception at runtime:
-
-```
-Amazon.BedrockRuntime.Model.ValidationException
-  HResult=0x80131500
-  Message=The value at toolConfig.tools.0.toolSpec.inputSchema.json.type must be one of the following: object.
-  Source=AWSSDK.Core
-  StackTrace:
-   at Amazon.Runtime.Internal.HttpErrorResponseExceptionHandler.HandleExceptionStream(IRequestContext requestContext, IWebResponseData httpErrorResponse, HttpErrorResponseException exception, Stream responseStream)
-   at Amazon.Runtime.Internal.HttpErrorResponseExceptionHandler.<HandleExceptionAsync>d__2.MoveNext()
-   at Amazon.Runtime.Internal.ExceptionHandler`1.<HandleAsync>d__6.MoveNext()
-   at Amazon.Runtime.Internal.ErrorHandler.<ProcessExceptionAsync>d__8.MoveNext()
-   at Amazon.Runtime.Internal.ErrorHandler.<InvokeAsync>d__5`1.MoveNext()
-   at Amazon.Runtime.Internal.CallbackHandler.<InvokeAsync>d__9`1.MoveNext()
-   at Amazon.Runtime.Internal.Signer.<InvokeAsync>d__1`1.MoveNext()
-   at Amazon.Runtime.Internal.EndpointDiscoveryHandler.<InvokeAsync>d__2`1.MoveNext()
-   at Amazon.Runtime.Internal.EndpointDiscoveryHandler.<InvokeAsync>d__2`1.MoveNext()
-   at Amazon.Runtime.Internal.CredentialsRetriever.<InvokeAsync>d__7`1.MoveNext()
-   at Amazon.Runtime.Internal.RetryHandler.<InvokeAsync>d__10`1.MoveNext()
-   at Amazon.Runtime.Internal.RetryHandler.<InvokeAsync>d__10`1.MoveNext()
-   at Amazon.Runtime.Internal.CallbackHandler.<InvokeAsync>d__9`1.MoveNext()
-   at Amazon.Runtime.Internal.CallbackHandler.<InvokeAsync>d__9`1.MoveNext()
-   at Amazon.Runtime.Internal.ErrorCallbackHandler.<InvokeAsync>d__5`1.MoveNext()
-   at Amazon.Runtime.Internal.MetricsHandler.<InvokeAsync>d__1`1.MoveNext()
-   at Program.<<Main>$>d__0.MoveNext() in D:\DotnetAgentExperiments\aws.bed\Program.cs:line 22
-```
-
-I asked about [Function calling with Claude on Amazon Bedrock in dotnet](https://stackoverflow.com/questions/79397902/function-calling-with-claude-on-amazon-bedrock-in-dotnet) at stackoverflow.
-
-After I changed the properties of my anonymous object to lowercase, it worked.
+There seems to be another issue regarding [#11448 .Net: Support Function calling for Amazon Bedrock (Using Converse APIs)](https://github.com/microsoft/semantic-kernel/issues/11448). The recommendation seems to be to use `IChatClient` instead of `IChatCompletionService`. And I actually got function calling working with like this:
 
 ```csharp
-Json = Amazon.Runtime.Documents.Document.FromObject(new
+var kernel = serviceScope.ServiceProvider.GetRequiredService<Kernel>();
+var chatClient = kernel.GetRequiredService<IChatClient>();
+
+List<ChatMessage> chatHistory = [];
+chatHistory.Add(new ChatMessage(ChatRole.System, "You are a helpful AI assistant"));
+chatHistory.Add(new ChatMessage(ChatRole.User, "Do I need an umbrella?"));
+
+var invocation = chatClient.GetStreamingResponseAsync(
+    messages: chatHistory,
+    options: new()
+    {
+        Temperature = 0f,
+        Tools = [AIFunctionFactory.Create([Description("Get the current weather.")]() => kernel.GetRequiredService<WeatherInformation>().GetWeather())]
+    });
+await foreach (var update in invocation)
 {
-	type = "object",
-	properties = new Dictionary<string, object>
-	{
-		{ "sign", new {
-			type = "string",
-			description = "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKRP."
-		} }
-	},
-	required = new string[]
-	{
-			"sign"
-	},
-}),
+    Console.Write(update);
+}
 ```
+
+However it feels less well integrated:
+
+1. `ChatHistory` is not updated automatically, but messages need to be maintained manually.
+2. Tools are not picked up automatically from plugins but have to be provided again.
+
+There seems to be interoperability method available with `chatClient.AsChatCompletionService();`, but this breaks function calling again.
+
+It seems that with `IChatCompletionService` my tools / plugins do not get picked up when used with AWS Bedrock.
+
+Bedrock is also not on the offical list of function calling support:
+
+<https://learn.microsoft.com/en-us/semantic-kernel/concepts/ai-services/chat-completion/function-calling/function-choice-behaviors?pivots=programming-language-csharp#supported-ai-connectors>
