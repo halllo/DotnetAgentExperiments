@@ -125,7 +125,7 @@ Works great, Also with function calling.
 
 ### Connectors.Amazon
 
-The connector package is still in alpha. It supports `chatClient.GetChatMessageContentsAsync()` without function calling.
+The connector package [Microsoft.SemanticKernel.Connectors.Amazon](https://www.nuget.org/packages/Microsoft.SemanticKernel.Connectors.Amazon/) is still in alpha. It supports `chatClient.GetChatMessageContentsAsync()` without function calling.
 
 Function calling seems to not be supported. As soon as I add `PromptExecutionSettings` with `FunctionChoiceBehavior.Auto()`, it throws this exception:
 
@@ -206,3 +206,28 @@ It seems that with `IChatCompletionService` my tools / plugins do not get picked
 Bedrock is also not on the offical list of function calling support:
 
 <https://learn.microsoft.com/en-us/semantic-kernel/concepts/ai-services/chat-completion/function-calling/function-choice-behaviors?pivots=programming-language-csharp#supported-ai-connectors>
+
+### Adapter by Johnny Z
+
+According to [AWS Bedrock anthropic claude tool call integration with microsoft semantic kernel](https://dev.to/stormhub/aws-bedrock-anthropic-claude-tool-call-integration-with-microsoft-semantic-kernel-29g3) a custom implementation can adapt the AWSSDK.BedrockRuntime IChatClient, like [resources/2025-04-02/ConsoleApp/ConsoleApp/AnthropicChatClient.cs](https://github.com/StormHub/stormhub/blob/main/resources/2025-04-02/ConsoleApp/ConsoleApp/AnthropicChatClient.cs). The implementation reminds me of [AgentDo](https://github.com/halllo/AgentDo), but seems more comprehensive.
+
+It is set up like this:
+
+```csharp
+services.AddKeyedSingleton<IChatCompletionService>("anthropic.adapter", (sp, key) =>
+{
+    var runtime = sp.GetRequiredService<IAmazonBedrockRuntime>();
+    IChatClient client = new AnthropicChatClient(runtime, "anthropic.claude-3-5-sonnet-20240620-v1:0");
+#pragma warning disable SKEXP0001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+    IChatCompletionService chatCompletionService = client
+        .AsBuilder()
+        .UseFunctionInvocation()
+        .Build()
+        .AsChatCompletionService();
+#pragma warning restore SKEXP0001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
+    return chatCompletionService;
+});
+```
+
+It successfully invokes my tools / plugins. This seems to be the best way to get function calling working with AWS Bedrock and SK.
