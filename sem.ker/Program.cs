@@ -8,43 +8,78 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using System.ComponentModel;
-using System.Text.Json;
 
 var host = CreateHostBuilder().Build();
 
 // Using IChatClient I get function calling via options.Tools.
 using (var serviceScope = host.Services.CreateScope())
 {
-var kernel = serviceScope.ServiceProvider.GetRequiredService<Kernel>();
-var chatClient = kernel.GetRequiredService<IChatClient>();
+    var kernel = serviceScope.ServiceProvider.GetRequiredService<Kernel>();
+    var chatClient = kernel.GetRequiredService<IChatClient>();
 
-List<ChatMessage> chatHistory = [];
-chatHistory.Add(new ChatMessage(ChatRole.System, "You are a helpful AI assistant"));
-chatHistory.Add(new ChatMessage(ChatRole.User, "Do I need an umbrella?"));
+    List<ChatMessage> chatHistory = [];
+    chatHistory.Add(new ChatMessage(ChatRole.System, "You are a helpful AI assistant"));
+    chatHistory.Add(new ChatMessage(ChatRole.User, "Do I need an umbrella?"));
 
-var invocation = chatClient.GetStreamingResponseAsync(
-    messages: chatHistory,
-    options: new()
+    var invocation = chatClient.GetStreamingResponseAsync(
+        messages: chatHistory,
+        options: new()
+        {
+            Temperature = 0f,
+            Tools = [AIFunctionFactory.Create([Description("Get the current weather.")] () => kernel.GetRequiredService<WeatherInformation>().GetWeather())]
+        });
+    await foreach (var update in invocation)
     {
-        Temperature = 0f,
-        Tools = [AIFunctionFactory.Create([Description("Get the current weather.")]() => kernel.GetRequiredService<WeatherInformation>().GetWeather())]
-    });
-await foreach (var update in invocation)
-{
-    Console.Write(update);
-}
+        Console.Write(update);
+    }
 
     //how to get the assistant chat message for following up?
 }
 
-// Using IChatCompletionService I dont get function calling via plugins.
+// Using IChatCompletionService(AWSSDK.MEAI) I dont get function calling via plugins.
 using (var serviceScope = host.Services.CreateScope())
 {
     var kernel = serviceScope.ServiceProvider.GetRequiredService<Kernel>();
-    var chatClient = serviceScope.ServiceProvider.GetRequiredService<IChatCompletionService>();
-//#pragma warning disable SKEXP0001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-//    var chatClient = kernel.GetRequiredService<IChatClient>().AsChatCompletionService(kernel.Services);
-//#pragma warning restore SKEXP0001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+    var chatClient = serviceScope.ServiceProvider.GetRequiredKeyedService<IChatCompletionService>("awssdk.meai");
+
+    ChatHistory chatHistory = [];
+    chatHistory.AddMessage(AuthorRole.System, "You are a helpful AI assistant");
+    chatHistory.AddMessage(AuthorRole.User, "Do I need an umbrella?");
+
+    {
+        var invocation = chatClient.GetStreamingChatMessageContentsAsync(
+            chatHistory: chatHistory,
+            executionSettings: new OpenAIPromptExecutionSettings()
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                MaxTokens = 4096,
+                Temperature = 0f,
+            },
+            kernel: kernel);
+        await ShowResponseStream(invocation, chatHistory);
+    }
+
+    chatHistory.AddMessage(AuthorRole.User, "And sunglasses?");
+
+    {
+        var invocation = await chatClient.GetChatMessageContentsAsync(
+            chatHistory: chatHistory,
+            executionSettings: new OpenAIPromptExecutionSettings()
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                MaxTokens = 4096,
+                Temperature = 0f,
+            },
+            kernel: kernel);
+        await ShowResponse(invocation, chatHistory);
+    }
+}
+
+// Using IChatCompletionService(anthropic.adapter) I get function calling via plugins.
+using (var serviceScope = host.Services.CreateScope())
+{
+    var kernel = serviceScope.ServiceProvider.GetRequiredService<Kernel>();
+    var chatClient = serviceScope.ServiceProvider.GetRequiredKeyedService<IChatCompletionService>("anthropic.adapter");
 
     ChatHistory chatHistory = [];
     chatHistory.AddMessage(AuthorRole.System, "You are a helpful AI assistant");
@@ -89,11 +124,6 @@ static async Task ShowResponseStream(IAsyncEnumerable<StreamingChatMessageConten
             fullMessage += update.Content;
             Console.Write(update.Content);
         }
-
-        //if (update is Microsoft.SemanticKernel.Connectors.OpenAI.OpenAIStreamingChatMessageContent c)
-        //{
-        //	if (c.FinishReason != null) Console.WriteLine(Environment.NewLine + c.FinishReason);
-        //}
     }
 
     chatHistory.AddMessage(AuthorRole.Assistant, fullMessage);
@@ -109,11 +139,6 @@ static async Task ShowResponse(IReadOnlyList<ChatMessageContent> invocation, Cha
             fullMessage += update.Content;
             Console.Write(update.Content);
         }
-
-        //if (update is Microsoft.SemanticKernel.Connectors.OpenAI.OpenAIChatMessageContent c)
-        //{
-        //	if (c. FinishReason != null) Console.WriteLine(Environment.NewLine + c.FinishReason);
-        //}
     }
 
     chatHistory.AddMessage(AuthorRole.Assistant, fullMessage);
@@ -137,7 +162,9 @@ static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
                 region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
         });
 
-        services.AddSingleton<IChatCompletionService>(sp =>
+        services.AddBedrockChatClient("anthropic.claude-3-5-sonnet-20240620-v1:0");
+
+        services.AddKeyedSingleton<IChatCompletionService>("awssdk.meai", (sp, key) =>
         {
 #pragma warning disable SKEXP0001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
             var runtime = sp.GetRequiredService<IAmazonBedrockRuntime>();
@@ -145,6 +172,7 @@ static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
                 .AsIChatClient("anthropic.claude-3-5-sonnet-20240620-v1:0")
                 .AsBuilder()
                 .UseKernelFunctionInvocation()
+                //.UseFunctionInvocation() also does not work
                 .Build()
                 .AsChatCompletionService();
 #pragma warning restore SKEXP0001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
@@ -152,7 +180,20 @@ static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
             return client;
         });
 
-        services.AddBedrockChatClient("anthropic.claude-3-5-sonnet-20240620-v1:0");
+        services.AddKeyedSingleton<IChatCompletionService>("anthropic.adapter", (sp, key) =>
+        {
+            var runtime = sp.GetRequiredService<IAmazonBedrockRuntime>();
+            IChatClient client = new AnthropicChatClient(runtime, "anthropic.claude-3-5-sonnet-20240620-v1:0");
+#pragma warning disable SKEXP0001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            IChatCompletionService chatCompletionService = client
+                .AsBuilder()
+                .UseFunctionInvocation()
+                .Build()
+                .AsChatCompletionService();
+#pragma warning restore SKEXP0001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
+            return chatCompletionService;
+        });
 
         //services.AddBedrockChatCompletionService("anthropic.claude-3-5-sonnet-20240620-v1:0");
 
@@ -184,9 +225,4 @@ public class WeatherInformation
         logger.LogInformation(weather);
         return weather;
     }
-}
-
-static class JsonExtensions
-{
-    public static string AsJson(this object o) => JsonSerializer.Serialize(o, o.GetType());
 }
