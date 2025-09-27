@@ -12,8 +12,10 @@ namespace ms.ext.ai
 	{
 		[TestMethod]
 		[DataRow("Microsoft.Extensions.AI.OpenAI")]
-		[DataRow("AWSSDK.Extensions.Bedrock.MEAI")]
-		[DataRow("CustomBedrockChatClient")]
+		[DataRow("AWSSDK.Extensions.Bedrock.MEAI_Claude3.5")]
+		[DataRow("AWSSDK.Extensions.Bedrock.MEAI_Claude4")]
+		[DataRow("CustomBedrockChatClient_Claude3.5")]
+		[DataRow("CustomBedrockChatClient_Claude4")]
 		public async Task ToolIsInvoked(string aiProvider)
 		{
 			var host = CreateHostBuilder().Build();
@@ -35,7 +37,9 @@ namespace ms.ext.ai
 						Tools = [AIFunctionFactory.Create(
 							method: () => {
 								toolCalled = true;
-								return "It's cloudy now and raining later";
+								var weather = "It's cloudy now and raining later";
+								Console.WriteLine($"Tool Call: {weather}");
+								return weather;
 							},
 							name: "GetWeather",
 							description: "Gets the weather.")]
@@ -72,7 +76,7 @@ namespace ms.ext.ai
 					return client;
 				});
 
-				services.AddKeyedSingleton<IChatClient>("AWSSDK.Extensions.Bedrock.MEAI", (sp, key) =>
+				services.AddKeyedSingleton<IChatClient>("AWSSDK.Extensions.Bedrock.MEAI_Claude3.5", (sp, key) =>
 				{
 					var runtime = new AmazonBedrockRuntimeClient(
 						awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
@@ -88,7 +92,23 @@ namespace ms.ext.ai
 					return client;
 				});
 
-				services.AddKeyedSingleton<IChatClient>("CustomBedrockChatClient", (sp, key) =>
+				services.AddKeyedSingleton<IChatClient>("AWSSDK.Extensions.Bedrock.MEAI_Claude4", (sp, key) =>
+				{
+					var runtime = new AmazonBedrockRuntimeClient(
+						awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
+						awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
+						region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
+
+					var client = runtime
+						.AsIChatClient("eu.anthropic.claude-sonnet-4-20250514-v1:0")
+						.AsBuilder()
+						.UseFunctionInvocation()
+						.Build();
+
+					return client;
+				});
+
+				services.AddKeyedSingleton<IChatClient>("CustomBedrockChatClient_Claude3.5", (sp, key) =>
 				{
 					var runtime = new AmazonBedrockRuntimeClient(
 						awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
@@ -96,6 +116,21 @@ namespace ms.ext.ai
 						region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
 
 					var client = new CustomBedrockChatClient(runtime, "anthropic.claude-3-5-sonnet-20240620-v1:0")
+						.AsBuilder()
+						.UseFunctionInvocation()
+						.Build();
+
+					return client;
+				});
+
+				services.AddKeyedSingleton<IChatClient>("CustomBedrockChatClient_Claude4", (sp, key) =>
+				{
+					var runtime = new AmazonBedrockRuntimeClient(
+						awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
+						awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
+						region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
+
+					var client = new CustomBedrockChatClient(runtime, "eu.anthropic.claude-sonnet-4-20250514-v1:0")
 						.AsBuilder()
 						.UseFunctionInvocation()
 						.Build();

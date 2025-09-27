@@ -11,7 +11,9 @@ namespace aws.bed
 	public class AwsSdkTest
 	{
 		[TestMethod]
-		public async Task InvokesTools()
+		[DataRow("anthropic.claude-3-5-sonnet-20240620-v1:0")]
+		[DataRow("eu.anthropic.claude-sonnet-4-20250514-v1:0")]
+		public async Task InvokesTools(string modelId)
 		{
 			var host = CreateHostBuilder().Build();
 			using (var serviceScope = host.Services.CreateScope())
@@ -81,7 +83,7 @@ namespace aws.bed
 				var bedrock = serviceScope.ServiceProvider.GetRequiredService<IAmazonBedrockRuntime>();
 				var response = await bedrock.ConverseAsync(new ConverseRequest
 				{
-					ModelId = "anthropic.claude-3-5-sonnet-20240620-v1:0",
+					ModelId = modelId,
 					Messages = messages,
 					ToolConfig = new ToolConfiguration { Tools = [tool] },
 					InferenceConfig = new InferenceConfiguration() { Temperature = 0.0F }

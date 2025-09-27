@@ -4,6 +4,8 @@ using Amazon.BedrockRuntime;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Spectre.Console;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
@@ -15,14 +17,20 @@ namespace aws.bed
 	public class AgentDoTest
 	{
 		[TestMethod]
-		public async Task InvokesTools()
+		[DataRow("anthropic.claude-3-5-sonnet-20240620-v1:0")]
+		[DataRow("eu.anthropic.claude-sonnet-4-20250514-v1:0")]
+		public async Task InvokesTools(string modelId)
 		{
 			var host = CreateHostBuilder().Build();
 			using (var serviceScope = host.Services.CreateScope())
 			{
 				var ratedSong = "";
 
-				var agent = serviceScope.ServiceProvider.GetRequiredService<IAgent>();
+				var agent = new BedrockAgent(
+					bedrock: serviceScope.ServiceProvider.GetRequiredService<IAmazonBedrockRuntime>(),
+					logger: serviceScope.ServiceProvider.GetRequiredService<ILogger<BedrockAgent>>(),
+					options: Options.Create(new BedrockAgentOptions { ModelId = modelId, Streaming = true }));
+
 				var result = await agent.Do(
 					task: "Get the most popular song played on a radio station RGBG and rate it as bad.",
 					tools:
@@ -73,14 +81,6 @@ namespace aws.bed
 						awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
 						region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
 				});
-
-				services.Configure<BedrockAgentOptions>(o =>
-				{
-					o.ModelId = "anthropic.claude-3-5-sonnet-20240620-v1:0";
-					o.Streaming = true;
-				});
-
-				services.AddTransient<IAgent, BedrockAgent>();
 			});
 	}
 }

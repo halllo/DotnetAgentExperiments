@@ -15,8 +15,10 @@ namespace sem.ker
 	public class SimpleFunctionCallingTest
 	{
 		[TestMethod]
-		[DataRow("Microsoft.SemanticKernel.Connectors.Amazon_ChatClient")]
-		[DataRow("AWSSDK.Extensions.Bedrock.MEAI_UseKernelFunctionInvocation")]
+		[DataRow("Microsoft.SemanticKernel.Connectors.Amazon_ChatClient_anthropic.claude-3-5-sonnet-20240620-v1:0")]
+		[DataRow("Microsoft.SemanticKernel.Connectors.Amazon_ChatClient_eu.anthropic.claude-sonnet-4-20250514-v1:0")]
+		[DataRow("AWSSDK.Extensions.Bedrock.MEAI_UseKernelFunctionInvocation_anthropic.claude-3-5-sonnet-20240620-v1:0")]
+		[DataRow("AWSSDK.Extensions.Bedrock.MEAI_UseKernelFunctionInvocation_eu.anthropic.claude-sonnet-4-20250514-v1:0")]
 		[DataRow("Microsoft.SemanticKernel.Connectors.OpenAI_ChatClient")]
 		public async Task ChatClientInvokesTool(string aiProvider)
 		{
@@ -39,11 +41,10 @@ namespace sem.ker
 					{
 						Temperature = 0f,
 						Tools = [
-							AIFunctionFactory.Create(
-								method: [Description("Get the current weather.")]() =>
-								{
-									return kernel.GetRequiredService<WeatherInformation>().GetWeather();
-								})
+							AIFunctionFactory.Create([Description("Get the current weather.")]() =>
+							{
+								return kernel.GetRequiredService<WeatherInformation>().GetWeather();
+							})
 						]
 					});
 
@@ -57,10 +58,14 @@ namespace sem.ker
 		}
 
 		[TestMethod]
-		[DataRow("Microsoft.SemanticKernel.Connectors.Amazon_ChatCompletion", true)]
-		[DataRow("AWSSDK.Extensions.Bedrock.MEAI_UseKernelFunctionInvocation_AsChatCompletionService", false)]
-		[DataRow("AWSSDK.Extensions.Bedrock.MEAI_UseFunctionInvocation_AsChatCompletionService", false)]
-		[DataRow("CustomBedrockClient_AsChatCompletionService", false)]
+		[DataRow("Microsoft.SemanticKernel.Connectors.Amazon_ChatCompletion_anthropic.claude-3-5-sonnet-20240620-v1:0", true)]
+		[DataRow("Microsoft.SemanticKernel.Connectors.Amazon_ChatCompletion_eu.anthropic.claude-sonnet-4-20250514-v1:0", true)]
+		[DataRow("AWSSDK.Extensions.Bedrock.MEAI_UseKernelFunctionInvocation_AsChatCompletionService_anthropic.claude-3-5-sonnet-20240620-v1:0", false)]
+		[DataRow("AWSSDK.Extensions.Bedrock.MEAI_UseKernelFunctionInvocation_AsChatCompletionService_eu.anthropic.claude-sonnet-4-20250514-v1:0", false)]
+		[DataRow("AWSSDK.Extensions.Bedrock.MEAI_UseFunctionInvocation_AsChatCompletionService_anthropic.claude-3-5-sonnet-20240620-v1:0", false)]
+		[DataRow("AWSSDK.Extensions.Bedrock.MEAI_UseFunctionInvocation_AsChatCompletionService_eu.anthropic.claude-sonnet-4-20250514-v1:0", false)]
+		[DataRow("CustomBedrockClient_AsChatCompletionService_anthropic.claude-3-5-sonnet-20240620-v1:0", false)]
+		[DataRow("CustomBedrockClient_AsChatCompletionService_eu.anthropic.claude-sonnet-4-20250514-v1:0", false)]
 		[DataRow("Microsoft.SemanticKernel.Connectors.OpenAI_ChatCompletion", false)]
 		public async Task ChatCompletionInvokesTool(string aiProvider, bool add_max_tokens_to_sample)
 		{
@@ -138,85 +143,91 @@ namespace sem.ker
 			{
 				var config = ctx.Configuration;
 
-				services.AddBedrockChatCompletionService(serviceId: "Microsoft.SemanticKernel.Connectors.Amazon_ChatCompletion",
-					modelId: "anthropic.claude-3-5-sonnet-20240620-v1:0",
-					bedrockRuntime: new AmazonBedrockRuntimeClient(
-						awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
-						awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
-						region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!)));
-
-				services.AddBedrockChatClient(serviceId: "Microsoft.SemanticKernel.Connectors.Amazon_ChatClient",
-					modelId: "anthropic.claude-3-5-sonnet-20240620-v1:0",
-					bedrockRuntime: new AmazonBedrockRuntimeClient(
-						awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
-						awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
-						region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!)));
-
-				services.AddKeyedSingleton<IChatCompletionService>("AWSSDK.Extensions.Bedrock.MEAI_UseKernelFunctionInvocation_AsChatCompletionService", (sp, key) =>
+				void registerForBedrock(string modelId)
 				{
-					var runtime = new AmazonBedrockRuntimeClient(
-						awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
-						awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
-						region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
+					services.AddBedrockChatCompletionService(serviceId: $"Microsoft.SemanticKernel.Connectors.Amazon_ChatCompletion_{modelId}",
+						modelId: modelId,
+						bedrockRuntime: new AmazonBedrockRuntimeClient(
+							awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
+							awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
+							region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!)));
 
-					var client = runtime
-						.AsIChatClient("anthropic.claude-3-5-sonnet-20240620-v1:0")
-						.AsBuilder()
-						.UseKernelFunctionInvocation()
-						.Build()
-						.AsChatCompletionService();
+					services.AddBedrockChatClient(serviceId: $"Microsoft.SemanticKernel.Connectors.Amazon_ChatClient_{modelId}",
+						modelId: modelId,
+						bedrockRuntime: new AmazonBedrockRuntimeClient(
+							awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
+							awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
+							region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!)));
 
-					return client;
-				});
+					services.AddKeyedSingleton<IChatCompletionService>($"AWSSDK.Extensions.Bedrock.MEAI_UseKernelFunctionInvocation_AsChatCompletionService_{modelId}", (sp, key) =>
+					{
+						var runtime = new AmazonBedrockRuntimeClient(
+							awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
+							awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
+							region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
 
-				services.AddKeyedSingleton<IChatCompletionService>("AWSSDK.Extensions.Bedrock.MEAI_UseFunctionInvocation_AsChatCompletionService", (sp, key) =>
-				{
-					var runtime = new AmazonBedrockRuntimeClient(
-						awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
-						awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
-						region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
+						var client = runtime
+							.AsIChatClient(modelId)
+							.AsBuilder()
+							.UseKernelFunctionInvocation()
+							.Build()
+							.AsChatCompletionService();
 
-					var client = runtime
-						.AsIChatClient("anthropic.claude-3-5-sonnet-20240620-v1:0")
-						.AsBuilder()
-						.UseFunctionInvocation()
-						.Build()
-						.AsChatCompletionService();
+						return client;
+					});
 
-					return client;
-				});
+					services.AddKeyedSingleton<IChatCompletionService>($"AWSSDK.Extensions.Bedrock.MEAI_UseFunctionInvocation_AsChatCompletionService_{modelId}", (sp, key) =>
+					{
+						var runtime = new AmazonBedrockRuntimeClient(
+							awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
+							awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
+							region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
 
-				services.AddKeyedSingleton<IChatClient>("AWSSDK.Extensions.Bedrock.MEAI_UseKernelFunctionInvocation", (sp, key) =>
-				{
-					var runtime = new AmazonBedrockRuntimeClient(
-						awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
-						awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
-						region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
+						var client = runtime
+							.AsIChatClient(modelId)
+							.AsBuilder()
+							.UseFunctionInvocation()
+							.Build()
+							.AsChatCompletionService();
 
-					var client = runtime
-						.AsIChatClient("anthropic.claude-3-5-sonnet-20240620-v1:0")
-						.AsBuilder()
-						.UseKernelFunctionInvocation()
-						.Build();
+						return client;
+					});
 
-					return client;
-				});
+					services.AddKeyedSingleton<IChatClient>($"AWSSDK.Extensions.Bedrock.MEAI_UseKernelFunctionInvocation_{modelId}", (sp, key) =>
+					{
+						var runtime = new AmazonBedrockRuntimeClient(
+							awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
+							awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
+							region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
 
-				services.AddKeyedSingleton<IChatCompletionService>("CustomBedrockClient_AsChatCompletionService", (sp, key) =>
-				{
-					var runtime = new AmazonBedrockRuntimeClient(
-						awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
-						awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
-						region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
+						var client = runtime
+							.AsIChatClient(modelId)
+							.AsBuilder()
+							.UseKernelFunctionInvocation()
+							.Build();
 
-					var client = new CustomBedrockChatClient(runtime, "anthropic.claude-3-5-sonnet-20240620-v1:0")
-						.AsBuilder()
-						.UseFunctionInvocation()
-						.Build()
-						.AsChatCompletionService();
+						return client;
+					});
 
-					return client;
-				});
+					services.AddKeyedSingleton<IChatCompletionService>($"CustomBedrockClient_AsChatCompletionService_{modelId}", (sp, key) =>
+					{
+						var runtime = new AmazonBedrockRuntimeClient(
+							awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
+							awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
+							region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
+
+						var client = new CustomBedrockChatClient(runtime, modelId)
+							.AsBuilder()
+							.UseFunctionInvocation()
+							.Build()
+							.AsChatCompletionService();
+
+						return client;
+					});
+				}
+
+				registerForBedrock("anthropic.claude-3-5-sonnet-20240620-v1:0");
+				registerForBedrock("eu.anthropic.claude-sonnet-4-20250514-v1:0");
 
 				services.AddOpenAIChatCompletion(serviceId: "Microsoft.SemanticKernel.Connectors.OpenAI_ChatCompletion",
 					modelId: "gpt-4o-mini",
