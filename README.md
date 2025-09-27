@@ -8,7 +8,7 @@ Lets compare different options for function calling with Amazon Bedrock:
 
 - AWSSDK.BedrockRuntime
 - AgentDo
-- Micorsoft.Extensions.AI & AWSSDK.Extensions.Bedrock.MEAI
+- Microsoft.Extensions.AI & AWSSDK.Extensions.Bedrock.MEAI
 - Microsoft.SemanticKernel & Microsoft.SemanticKernel.Connectors.Amazon
 
 ### Results
