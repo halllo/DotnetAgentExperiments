@@ -11,12 +11,12 @@ using System.Text.Json;
 /// <summary>
 /// Taken from https://github.com/StormHub/stormhub/blob/main/resources/2025-04-02/ConsoleApp/ConsoleApp/AnthropicChatClient.cs
 /// </summary>
-internal sealed class AnthropicChatClient : IChatClient
+internal sealed class CustomBedrockChatClient : IChatClient
 {
     private readonly IAmazonBedrockRuntime _bedrockRuntime;
     private readonly ChatClientMetadata _metadata;
 
-    public AnthropicChatClient(IAmazonBedrockRuntime bedrockRuntime, string defaultModelId)
+    public CustomBedrockChatClient(IAmazonBedrockRuntime bedrockRuntime, string defaultModelId)
     {
         _bedrockRuntime = bedrockRuntime;
         _metadata = new ChatClientMetadata(

@@ -8,9 +8,15 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AgentDo" Version="1.0.26" />
-		<PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
-		<PackageReference Include="Spectre.Console" Version="0.50.0" />
+		<PackageReference Include="AgentDo" Version="1.0.27" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
+		<PackageReference Include="Spectre.Console" Version="0.51.1" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+		<PackageReference Include="MSTest" Version="3.10.4" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
 	</ItemGroup>
 
 	<ItemGroup>
