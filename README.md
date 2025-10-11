@@ -17,6 +17,9 @@ Lets compare different options for function calling with Amazon Bedrock:
 
 ## Semantic Kernel
 
+> [!WARNING]  
+> With the advent of [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (building on MEAI), Semantic Kernel does not have a future!
+
 There seems to be an issue regarding [#11448 .Net: Support Function calling for Amazon Bedrock (Using Converse APIs)](https://github.com/microsoft/semantic-kernel/issues/11448). The recommendation seems to be to use `IChatClient` instead of `IChatCompletionService`. And I actually got function calling working with like this:
 
 ```csharp
