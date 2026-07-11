@@ -1,4 +1,7 @@
-﻿using Amazon.BedrockRuntime;
+#pragma warning disable MEAI001 // Some Microsoft.Extensions.AI approval/reasoning types are for evaluation only.
+
+using Amazon.BedrockRuntime;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,120 +11,140 @@ using Spectre.Console;
 using System.Text.Json;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
+
+var provider =
+	//"OpenAI"
+	"AmazonBedrock"
+	;
+
 var host = CreateHostBuilder().Build();
-using (var serviceScope = host.Services.CreateScope())
+using var serviceScope = host.Services.CreateScope();
+var serviceProvider = serviceScope.ServiceProvider;
+
+var chatClient = serviceProvider.GetRequiredKeyedService<IChatClient>(provider);
+
+var historyFile = "history.json";
+var forgetRequested = false;
+
+var tools = new AITool[]
 {
-	var serviceProvider = serviceScope.ServiceProvider;
-	var client = serviceProvider.GetRequiredKeyedService<IChatClient>(
-		//"OpenAI"
-		"AmazonBedrock"
-	);
-
-	var historyFile = "history.json";
-	var historyMessages = LoadHistory(historyFile);
-	var chatHistory = new List<ChatMessage>(historyMessages);
-	var tools = new AITool[]
-	{
-		AIFunctionFactory.Create(
-			name: "forget_history",
-			method: () =>
-			{
-				chatHistory.Clear();
-				if (File.Exists(historyFile))
-				{
-					File.Delete(historyFile);
-					AnsiConsole.Markup($"{Emoji.Known.RecyclingSymbol}  ");
-					return "Deleted the conversation history.";
-				}
-
-				return "No conversation history to delete.";
-			}).RequireApproval()
-	};
-
-	if (historyMessages.Any())
-	{
-		AnsiConsole.Write(new Rule { Title = "History", Justification = Justify.Left, Style = Style.Parse("grey27") });
-		foreach (var previousMessage in historyMessages)
+	AIFunctionFactory.Create(
+		name: "forget_history",
+		description: "Forget/delete the entire conversation history.",
+		method: () =>
 		{
-			AnsiConsole.MarkupLine($"[grey27]{previousMessage.Role}:[/] [grey35]{Markup.Escape(string.Join(" ", previousMessage.Contents.Select(c => c.ToString())))}[/]");
-		}
-		AnsiConsole.Write(new Rule { Style = Style.Parse("grey27") });
-	}
+			forgetRequested = true;
+			if (File.Exists(historyFile))
+			{
+				File.Delete(historyFile);
+				AnsiConsole.Markup($"{Emoji.Known.RecyclingSymbol}  ");
+				return "Deleted the conversation history.";
+			}
 
-	string userInput;
+			return "No conversation history to delete.";
+		}).RequireApproval()
+};
+
+AIAgent agent = chatClient.AsAIAgent(new ChatClientAgentOptions
+{
+	Name = "Assistant",
+	ChatOptions = new ChatOptions
+	{
+		Instructions = "You are a helpful assistant. Answer short and concise. The shorter the better.",
+		Tools = tools,
+		Reasoning = provider == "AmazonBedrock"
+			? new ReasoningOptions { Effort = ReasoningEffort.Medium }
+			: null,// gpt-4o-mini is not a reasoning model, so only ask Bedrock/Claude to think.
+	}
+});
+
+AnsiConsole.MarkupLine($"[grey27]provider:[/] [grey35]{provider}[/]");
+
+var session = await LoadSessionAsync(agent, historyFile);
+if (session.TryGetInMemoryChatHistory(out var previousMessages) && previousMessages is { Count: > 0 })
+{
+	AnsiConsole.Write(new Rule { Title = "History", Justification = Justify.Left, Style = Style.Parse("grey27") });
+	foreach (var previousMessage in previousMessages)
+	{
+		var text = string.Join(" ", previousMessage.Contents.OfType<TextContent>().Select(c => c.Text));
+		if (string.IsNullOrWhiteSpace(text)) continue;
+		AnsiConsole.MarkupLine($"[grey27]{previousMessage.Role}:[/] [grey35]{Markup.Escape(text)}[/]");
+	}
+	AnsiConsole.Write(new Rule { Style = Style.Parse("grey27") });
+}
+
+while (true)
+{
+	AnsiConsole.Markup("[gray]user:[/] ");
+	var userInput = Console.ReadLine() ?? "";
+	if (string.IsNullOrWhiteSpace(userInput)) break;
+
+	ChatMessage nextMessage = new(ChatRole.User, userInput);
 	while (true)
 	{
-		AnsiConsole.Markup("[gray]user:[/] ");
-		userInput = Console.ReadLine() ?? "";
-		if (string.IsNullOrWhiteSpace(userInput)) break;
-		chatHistory.Add(new ChatMessage(ChatRole.User, userInput));
+		var updates = new List<AgentResponseUpdate>();
+		var isThinking = false;
+		var isAnswering = false;
 
-		while (true)
+		await foreach (var update in agent.RunStreamingAsync(nextMessage, session))
 		{
-			var updates = new List<ChatResponseUpdate>();
-			var stream = client.GetStreamingResponseAsync(
-				messages: chatHistory,
-				options: new ChatOptions
-				{
-					Instructions = "You are a helpful assistant. Answer short and concise. The shorter the better.",
-					Tools = tools,
-					Reasoning = new ReasoningOptions { Effort = ReasoningEffort.Medium },
-				});
-
-			var isThinking = false;
-			var isAnswering = false;
-			await foreach (var update in stream)
+			updates.Add(update);
+			foreach (var content in update.Contents)
 			{
-				updates.Add(update);
-				foreach (var content in update.Contents)
+				if (content is TextReasoningContent reasoning)
 				{
-					if (content is TextReasoningContent reasoning)
+					if (!isThinking)
 					{
-						if (!isThinking)
-						{
-							AnsiConsole.Markup("[grey]thinking:[/] ");
-							isThinking = true;
-						}
-						AnsiConsole.Markup($"[grey]{Markup.Escape(reasoning.Text)}[/]");
+						AnsiConsole.Markup("[grey]thinking:[/] ");
+						isThinking = true;
 					}
-					else if (content is TextContent text)
+					AnsiConsole.Markup($"[grey]{Markup.Escape(reasoning.Text)}[/]");
+				}
+				else if (content is TextContent text)
+				{
+					if (!isAnswering)
 					{
-						if (!isAnswering)
-						{
-							if (isThinking) Console.WriteLine();
-							AnsiConsole.Markup("[gray]assistant:[/] ");
-							isAnswering = true;
-						}
-						Console.Write(text.Text);
+						if (isThinking) Console.WriteLine();
+						AnsiConsole.Markup("[gray]assistant:[/] ");
+						isAnswering = true;
 					}
+					Console.Write(text.Text);
 				}
 			}
-			Console.WriteLine();
-			var response = updates.ToChatResponse();
-			chatHistory.AddMessages(response);
+		}
+		if (isThinking || isAnswering) Console.WriteLine();
 
-			var functionApprovals = response.Messages
-				.SelectMany(x => x.Contents)
-				.OfTypeApprovalRequest()
-				.Select(approvalRequest =>
-				{
-					var toolName = (approvalRequest.ToolCall as FunctionCallContent)?.Name ?? approvalRequest.ToolCall.CallId;
-					var approved = AnsiConsole.Prompt(new SelectionPrompt<string>()
-						.Title($"[bold]We require approval to execute '{toolName}'.[/]")
-						.AddChoices(["Approve", "Reject"])) == "Approve";
-					return approvalRequest.CreateResponse(approved);
-				})
-				.ToList();
+		var response = updates.ToAgentResponse();
 
-			if (functionApprovals.Any())
+		var functionApprovals = response.Messages
+			.SelectMany(x => x.Contents)
+			.OfType<ToolApprovalRequestContent>()
+			.Select(approvalRequest =>
 			{
-				chatHistory.Add(new ChatMessage(ChatRole.User, [.. functionApprovals]));
-			}
-			else break;
+				var toolName = (approvalRequest.ToolCall as FunctionCallContent)?.Name ?? approvalRequest.ToolCall.CallId;
+				return approvalRequest.CreateResponse(PromptApproval(toolName));
+			})
+			.ToList();
+
+		if (functionApprovals.Count > 0)
+		{
+			nextMessage = new ChatMessage(ChatRole.User, [.. functionApprovals]);
+		}
+		else
+		{
+			break;
 		}
 	}
 
-	SaveHistory(historyFile, chatHistory);
+	if (forgetRequested)
+	{
+		session = await agent.CreateSessionAsync();
+		forgetRequested = false;
+	}
+	else
+	{
+		await SaveSessionAsync(agent, session, historyFile);
+	}
 }
 
 Console.WriteLine();
@@ -139,53 +162,65 @@ static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
 	{
 		var config = ctx.Configuration;
 
-		services.AddKeyedSingleton("OpenAI", (sp, key) =>
+		services.AddKeyedSingleton<IChatClient>("OpenAI", (sp, key) =>
 		{
-			var openAi = new OpenAIClient(config["OPENAI_API_KEY"]).GetChatClient("gpt-4o-mini");
-			var client = openAi
-				.AsIChatClient()
-				.AsBuilder()
-				.UseFunctionInvocation()
-				.Build();
-			return client;
+			return new OpenAIClient(config["OPENAI_API_KEY"])
+				.GetChatClient("gpt-4o-mini")
+				.AsIChatClient();
 		});
-		services.AddKeyedSingleton("AmazonBedrock", (sp, key) =>
+		services.AddKeyedSingleton<IChatClient>("AmazonBedrock", (sp, key) =>
 		{
 			var runtime = new AmazonBedrockRuntimeClient(
 				awsAccessKeyId: config["AWSBedrockAccessKeyId"]!,
 				awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
 				region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
 
-			var client = runtime
-				.AsIChatClient("eu.anthropic.claude-sonnet-4-6")
-				.AsBuilder()
-				.UseFunctionInvocation()
-				.Build();
-			return client;
+			return runtime.AsIChatClient("eu.anthropic.claude-sonnet-4-6");
 		});
 	});
 
-static IReadOnlyList<ChatMessage> LoadHistory(string historyFile)
+static bool PromptApproval(string toolName)
+{
+	if (Console.IsInputRedirected)
+	{
+		AnsiConsole.Markup($"[bold]Approve execution of '{Markup.Escape(toolName)}'? (y/n):[/] ");
+		var answer = Console.ReadLine();
+		return answer?.Trim().StartsWith("y", StringComparison.OrdinalIgnoreCase) == true;
+	}
+
+	return AnsiConsole.Prompt(new SelectionPrompt<string>()
+		.Title($"[bold]We require approval to execute '{Markup.Escape(toolName)}'.[/]")
+		.AddChoices(["Approve", "Reject"])) == "Approve";
+}
+
+static async Task<AgentSession> LoadSessionAsync(AIAgent agent, string historyFile)
 {
 	if (!File.Exists(historyFile))
 	{
-		return [];
+		return await agent.CreateSessionAsync();
 	}
 
-	var json = File.ReadAllText(historyFile);
-	return JsonSerializer.Deserialize<List<ChatMessage>>(json) ?? [];
+	try
+	{
+		var json = await File.ReadAllTextAsync(historyFile);
+		var element = JsonSerializer.Deserialize<JsonElement>(json);
+		return await agent.DeserializeSessionAsync(element);
+	}
+	catch (Exception ex)
+	{
+		AnsiConsole.MarkupLine($"[yellow]Could not restore history ({Markup.Escape(ex.Message)}); starting fresh.[/]");
+		return await agent.CreateSessionAsync();
+	}
 }
 
-static void SaveHistory(string historyFile, IReadOnlyList<ChatMessage> chatHistory)
+static async Task SaveSessionAsync(AIAgent agent, AgentSession session, string historyFile)
 {
-	var json = JsonSerializer.Serialize(chatHistory, new JsonSerializerOptions { WriteIndented = true });
-	File.WriteAllText(historyFile, json);
+	var element = await agent.SerializeSessionAsync(session);
+	var json = JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
+	await File.WriteAllTextAsync(historyFile, json);
 }
 
-#pragma warning disable MEAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 static class ApprovalExtensions
 {
 	public static AIFunction RequireApproval(this AIFunction function) => new ApprovalRequiredAIFunction(function);
-	public static IEnumerable<ToolApprovalRequestContent> OfTypeApprovalRequest(this IEnumerable<AIContent> contents) => contents.OfType<ToolApprovalRequestContent>();
 }
-#pragma warning restore MEAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.

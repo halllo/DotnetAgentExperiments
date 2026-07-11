@@ -3,7 +3,8 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="aws.bed/aws.bed.csproj" />
-  <Project Path="ms.af/ms.af.csproj" />
+  <Project Path="ms.ext.ai.custom/ms.ext.ai.custom.csproj" />
   <Project Path="ms.ext.ai/ms.ext.ai.csproj" />
+  <Project Path="ms.af/ms.af.csproj" />
   <Project Path="sem.ker/sem.ker.csproj" />
 </Solution>

@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenAI;
 
-namespace ms.ext.ai
+namespace ms.ext.ai.custom
 {
 	[TestClass]
 	public class SimpleFunctionCallingTest
