@@ -85,8 +85,9 @@ using (var serviceScope = host.Services.CreateScope())
 				.OfTypeApprovalRequest()
 				.Select(approvalRequest =>
 				{
+					var toolName = (approvalRequest.ToolCall as FunctionCallContent)?.Name ?? approvalRequest.ToolCall.CallId;
 					var approved = AnsiConsole.Prompt(new SelectionPrompt<string>()
-						.Title($"[bold]We require approval to execute '{approvalRequest.FunctionCall.Name}'.[/]")
+						.Title($"[bold]We require approval to execute '{toolName}'.[/]")
 						.AddChoices(["Approve", "Reject"])) == "Approve";
 					return approvalRequest.CreateResponse(approved);
 				})
@@ -140,6 +141,6 @@ static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
 static class ApprovalExtensions
 {
 	public static AIFunction RequireApproval(this AIFunction function) => new ApprovalRequiredAIFunction(function);
-	public static IEnumerable<FunctionApprovalRequestContent> OfTypeApprovalRequest(this IEnumerable<AIContent> contents) => contents.OfType<FunctionApprovalRequestContent>();
+	public static IEnumerable<ToolApprovalRequestContent> OfTypeApprovalRequest(this IEnumerable<AIContent> contents) => contents.OfType<ToolApprovalRequestContent>();
 }
 #pragma warning restore MEAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
