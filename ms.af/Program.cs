@@ -65,13 +65,36 @@ using (var serviceScope = host.Services.CreateScope())
 				{
 					Instructions = "You are a helpful assistant. Answer short and concise. The shorter the better.",
 					Tools = tools,
-					Temperature = 0f,
+					Reasoning = new ReasoningOptions { Effort = ReasoningEffort.Medium },
 				});
-			AnsiConsole.Markup("[gray]assistant:[/] ");
+
+			var isThinking = false;
+			var isAnswering = false;
 			await foreach (var update in stream)
 			{
 				updates.Add(update);
-				Console.Write(update);
+				foreach (var content in update.Contents)
+				{
+					if (content is TextReasoningContent reasoning)
+					{
+						if (!isThinking)
+						{
+							AnsiConsole.Markup("[grey]thinking:[/] ");
+							isThinking = true;
+						}
+						AnsiConsole.Markup($"[grey]{Markup.Escape(reasoning.Text)}[/]");
+					}
+					else if (content is TextContent text)
+					{
+						if (!isAnswering)
+						{
+							if (isThinking) Console.WriteLine();
+							AnsiConsole.Markup("[gray]assistant:[/] ");
+							isAnswering = true;
+						}
+						Console.Write(text.Text);
+					}
+				}
 			}
 			Console.WriteLine();
 			var response = updates.ToChatResponse();
@@ -134,7 +157,7 @@ static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
 				region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
 
 			var client = runtime
-				.AsIChatClient("eu.anthropic.claude-sonnet-4-20250514-v1:0")
+				.AsIChatClient("eu.anthropic.claude-sonnet-4-6")
 				.AsBuilder()
 				.UseFunctionInvocation()
 				.Build();
