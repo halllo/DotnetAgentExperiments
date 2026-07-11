@@ -5,11 +5,12 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-	</PropertyGroup>
+	  <UserSecretsId>0f6ae155-930d-4542-a143-c51f05a97540</UserSecretsId>
+  </PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="AWSSDK.Extensions.Bedrock.MEAI" Version="4.0.101.3" />
-		<PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-preview.251009.1" />
+		<PackageReference Include="Microsoft.Extensions.AI" Version="10.7.0" />
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
 		<PackageReference Include="Spectre.Console" Version="0.57.2" />

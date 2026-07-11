@@ -1,5 +1,4 @@
 ﻿using Amazon.BedrockRuntime;
-using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,36 +18,26 @@ using (var serviceScope = host.Services.CreateScope())
 	);
 
 	var historyFile = "history.json";
-	ChatClientAgentThread thread = null!;
-	ChatClientAgent agent = null!;
-
-	agent = client.CreateAIAgent(
-		instructions: "You are a helpful assistant. Answer short and concise. The shorter the better.",
-		tools:
-		[
-			AIFunctionFactory.Create(
-				name: "forget_history",
-				method: () =>
+	var historyMessages = LoadHistory(historyFile);
+	var chatHistory = new List<ChatMessage>(historyMessages);
+	var tools = new AITool[]
+	{
+		AIFunctionFactory.Create(
+			name: "forget_history",
+			method: () =>
+			{
+				chatHistory.Clear();
+				if (File.Exists(historyFile))
 				{
-					if (File.Exists(historyFile))
-					{
-						File.Delete(historyFile);
-						thread = (ChatClientAgentThread)agent.GetNewThread();
-						AnsiConsole.Markup($"{Emoji.Known.RecyclingSymbol}  ");
-						return "Deleted the conversation history.";
-					}
-					else
-					{
-						return "No conversation history to delete.";
-					}
-				}).RequireApproval()
-		]);
+					File.Delete(historyFile);
+					AnsiConsole.Markup($"{Emoji.Known.RecyclingSymbol}  ");
+					return "Deleted the conversation history.";
+				}
 
-	thread = (ChatClientAgentThread)(File.Exists(historyFile)
-		? agent.DeserializeThread(JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(historyFile)))
-		: agent.GetNewThread());
+				return "No conversation history to delete.";
+			}).RequireApproval()
+	};
 
-	var historyMessages = await (thread.MessageStore?.GetMessagesAsync() ?? Task.FromResult(Enumerable.Empty<ChatMessage>()));
 	if (historyMessages.Any())
 	{
 		AnsiConsole.Write(new Rule { Title = "History", Justification = Justify.Left, Style = Style.Parse("grey27") });
@@ -65,12 +54,19 @@ using (var serviceScope = host.Services.CreateScope())
 		AnsiConsole.Markup("[gray]user:[/] ");
 		userInput = Console.ReadLine() ?? "";
 		if (string.IsNullOrWhiteSpace(userInput)) break;
-		var userMessage = new ChatMessage(ChatRole.User, userInput);
+		chatHistory.Add(new ChatMessage(ChatRole.User, userInput));
 
 		while (true)
 		{
-			var updates = new List<AgentRunResponseUpdate>();
-			var stream = agent.RunStreamingAsync(userMessage, thread);
+			var updates = new List<ChatResponseUpdate>();
+			var stream = client.GetStreamingResponseAsync(
+				messages: chatHistory,
+				options: new ChatOptions
+				{
+					Instructions = "You are a helpful assistant. Answer short and concise. The shorter the better.",
+					Tools = tools,
+					Temperature = 0f,
+				});
 			AnsiConsole.Markup("[gray]assistant:[/] ");
 			await foreach (var update in stream)
 			{
@@ -78,7 +74,8 @@ using (var serviceScope = host.Services.CreateScope())
 				Console.Write(update);
 			}
 			Console.WriteLine();
-			var response = updates.ToAgentRunResponse();
+			var response = updates.ToChatResponse();
+			chatHistory.AddMessages(response);
 
 			var functionApprovals = response.Messages
 				.SelectMany(x => x.Contents)
@@ -95,14 +92,13 @@ using (var serviceScope = host.Services.CreateScope())
 
 			if (functionApprovals.Any())
 			{
-				var approvalMessage = new ChatMessage(ChatRole.User, [.. functionApprovals]);
-				userMessage = approvalMessage;
+				chatHistory.Add(new ChatMessage(ChatRole.User, [.. functionApprovals]));
 			}
 			else break;
 		}
 	}
 
-	File.WriteAllText(historyFile, thread.Serialize().ToString());
+	SaveHistory(historyFile, chatHistory);
 }
 
 Console.WriteLine();
@@ -113,6 +109,7 @@ Console.WriteLine("Done");
 static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
 	.ConfigureAppConfiguration(cfg =>
 	{
+		cfg.AddUserSecrets<Program>(optional: true);
 		cfg.AddJsonFile("appsettings.local.json", optional: true);
 	})
 	.ConfigureServices((ctx, services) =>
@@ -122,7 +119,11 @@ static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
 		services.AddKeyedSingleton("OpenAI", (sp, key) =>
 		{
 			var openAi = new OpenAIClient(config["OPENAI_API_KEY"]).GetChatClient("gpt-4o-mini");
-			var client = openAi.AsIChatClient();
+			var client = openAi
+				.AsIChatClient()
+				.AsBuilder()
+				.UseFunctionInvocation()
+				.Build();
 			return client;
 		});
 		services.AddKeyedSingleton("AmazonBedrock", (sp, key) =>
@@ -132,10 +133,31 @@ static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
 				awsSecretAccessKey: config["AWSBedrockSecretAccessKey"]!,
 				region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"]!));
 
-			var client = runtime.AsIChatClient("eu.anthropic.claude-sonnet-4-20250514-v1:0");
+			var client = runtime
+				.AsIChatClient("eu.anthropic.claude-sonnet-4-20250514-v1:0")
+				.AsBuilder()
+				.UseFunctionInvocation()
+				.Build();
 			return client;
 		});
 	});
+
+static IReadOnlyList<ChatMessage> LoadHistory(string historyFile)
+{
+	if (!File.Exists(historyFile))
+	{
+		return [];
+	}
+
+	var json = File.ReadAllText(historyFile);
+	return JsonSerializer.Deserialize<List<ChatMessage>>(json) ?? [];
+}
+
+static void SaveHistory(string historyFile, IReadOnlyList<ChatMessage> chatHistory)
+{
+	var json = JsonSerializer.Serialize(chatHistory, new JsonSerializerOptions { WriteIndented = true });
+	File.WriteAllText(historyFile, json);
+}
 
 #pragma warning disable MEAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 static class ApprovalExtensions
